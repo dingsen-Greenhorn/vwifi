@@ -694,7 +694,7 @@ The `qemu_x86_64_defconfig` configuration will not fit the testing environment, 
 $ make menuconfig
 ```
 
-We need a filesystem overlay for putting our `vwifi` kernel module and some user program's configuration file into the VM, so choose a place for the filesystem overlay (we recommend creating an empty directory for it).
+We need a filesystem overlay for putting our `vwifi` kernel module and some user program's configuration file into the VM, so choose a place for the filesystem overlay (we recommand creating an empty directory for it).
 
 Also, we need network applications like `iw`, `hostapd` and `wpa_supplicant`.
 ```
