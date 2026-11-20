@@ -1728,8 +1728,13 @@ static int vwifi_start_ap(struct wiphy *wiphy,
 
     /* Initialize hrtimer of beacon */
     pr_info("vwifi: init beacon_timer.\n");
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 15, 0)
+    hrtimer_setup(&vif->beacon_timer, vwifi_beacon, CLOCK_MONOTONIC,
+                  HRTIMER_MODE_ABS_SOFT);
+#else
     hrtimer_init(&vif->beacon_timer, CLOCK_MONOTONIC, HRTIMER_MODE_ABS_SOFT);
     vif->beacon_timer.function = vwifi_beacon;
+#endif
 
     if (!hrtimer_is_queued(&vif->beacon_timer)) {
         u64 tsf, until_tbtt;
@@ -2025,7 +2030,11 @@ static int vwifi_delete_interface(struct vwifi_vif *vif)
 
         cancel_work_sync(&vif->ws_scan);
         cancel_work_sync(&vif->ws_scan_timeout);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 84)
+        timer_delete_sync(&vif->scan_complete);
+#else
         del_timer_sync(&vif->scan_complete);
+#endif
 
         /* If there's a pending scan, call cfg80211_scan_done to finish it. */
         if (vif->scan_request) {
@@ -2036,7 +2045,11 @@ static int vwifi_delete_interface(struct vwifi_vif *vif)
         }
 
         /* Make sure that no work is queued */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 84)
+        timer_delete_sync(&vif->scan_timeout);
+#else
         del_timer_sync(&vif->scan_timeout);
+#endif
         cancel_work_sync(&vif->ws_connect);
         cancel_work_sync(&vif->ws_disconnect);
 
@@ -2057,6 +2070,9 @@ static int vwifi_delete_interface(struct vwifi_vif *vif)
 /* Set transmit power for the virtual interface */
 static int vwifi_set_tx_power(struct wiphy *wiphy,
                               struct wireless_dev *wdev,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 17, 0)
+                              int radio_idx,
+#endif
                               enum nl80211_tx_power_setting type,
                               int mbm)
 {
@@ -2102,6 +2118,12 @@ static int vwifi_set_tx_power(struct wiphy *wiphy,
 /* Get transmit power from the virtual interface */
 static int vwifi_get_tx_power(struct wiphy *wiphy,
                               struct wireless_dev *wdev,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 17, 0)
+                              int radio_idx,
+#endif
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 14, 0)
+                              unsigned int link_id,
+#endif
                               int *dbm)
 {
     struct vwifi_vif *vif = wdev_get_vwifi_vif(wdev);
