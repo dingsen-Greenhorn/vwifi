@@ -24,6 +24,14 @@ MODULE_DESCRIPTION("virtual cfg80211 driver");
 #define NAME_PREFIX "vw"
 #define NDEV_NAME NAME_PREFIX "%d"
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(7, 1, 0)
+#define VWIFI_CFG80211_DEV struct wireless_dev
+#define VWIFI_CFG80211_NDEV(cfg_dev) ((cfg_dev)->netdev)
+#else
+#define VWIFI_CFG80211_DEV struct net_device
+#define VWIFI_CFG80211_NDEV(cfg_dev) (cfg_dev)
+#endif
+
 #define VWIFI_WIPHY_NAME_LEN 12
 #define VWIFI_WIPHY_PREFIX "vw_phy"
 
@@ -1349,10 +1357,11 @@ static int vwifi_disconnect(struct wiphy *wiphy,
  * This callback is invoked when the rtnl lock has been acquired.
  */
 static int vwifi_get_station(struct wiphy *wiphy,
-                             struct net_device *dev,
+                             VWIFI_CFG80211_DEV *cfg_dev,
                              const u8 *mac,
                              struct station_info *sinfo)
 {
+    struct net_device *dev = VWIFI_CFG80211_NDEV(cfg_dev);
     struct vwifi_vif *vif = ndev_get_vwifi_vif(dev);
 
     bool found_sta = false;
@@ -1499,11 +1508,12 @@ static int vwifi_get_station(struct wiphy *wiphy,
 }
 /* dump station callback -- resume dump at index @idx */
 static int vwifi_dump_station(struct wiphy *wiphy,
-                              struct net_device *dev,
+                              VWIFI_CFG80211_DEV *cfg_dev,
                               int idx,
                               u8 *mac,
                               struct station_info *sinfo)
 {
+    struct net_device *dev = VWIFI_CFG80211_NDEV(cfg_dev);
     struct vwifi_vif *ap_vif = ndev_get_vwifi_vif(dev);
 
     pr_info("Dump station at the idx %d\n", idx);
@@ -1526,7 +1536,7 @@ static int vwifi_dump_station(struct wiphy *wiphy,
     ret = 0;
 
     memcpy(mac, sta_vif->ndev->dev_addr, ETH_ALEN);
-    return vwifi_get_station(wiphy, dev, mac, sinfo);
+    return vwifi_get_station(wiphy, cfg_dev, mac, sinfo);
 }
 
 static void vwifi_virtio_scan_complete(struct timer_list *t);
@@ -1885,7 +1895,7 @@ static int vwifi_change_beacon(struct wiphy *wiphy,
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0)
 static int vwifi_add_key(struct wiphy *wiphy,
-                         struct net_device *ndev,
+                         VWIFI_CFG80211_DEV *cfg_dev,
                          int link_id,
                          u8 key_idx,
                          bool pairwise,
@@ -1893,7 +1903,7 @@ static int vwifi_add_key(struct wiphy *wiphy,
                          struct key_params *params)
 #else
 static int vwifi_add_key(struct wiphy *wiphy,
-                         struct net_device *ndev,
+                         VWIFI_CFG80211_DEV *cfg_dev,
                          u8 key_idx,
                          bool pairwise,
                          const u8 *mac_addr,
@@ -1905,14 +1915,14 @@ static int vwifi_add_key(struct wiphy *wiphy,
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0)
 static int vwifi_del_key(struct wiphy *wiphy,
-                         struct net_device *ndev,
+                         VWIFI_CFG80211_DEV *cfg_dev,
                          int link_id,
                          u8 key_idx,
                          bool pairwise,
                          const u8 *mac_addr)
 #else
 static int vwifi_del_key(struct wiphy *wiphy,
-                         struct net_device *ndev,
+                         VWIFI_CFG80211_DEV *cfg_dev,
                          u8 key_idx,
                          bool pairwise,
                          const u8 *mac_addr)
@@ -1946,10 +1956,11 @@ static void vwifi_virtio_sta_entry_response(struct vwifi_vif *vif,
                                             const u8 *sta);
 
 static int vwifi_change_station(struct wiphy *wiphy,
-                                struct net_device *ndev,
+                                VWIFI_CFG80211_DEV *cfg_dev,
                                 const u8 *mac,
                                 struct station_parameters *params)
 {
+    struct net_device *ndev = VWIFI_CFG80211_NDEV(cfg_dev);
     struct vwifi_vif *vif = ndev_get_vwifi_vif(ndev);
     struct bss_sta_entry *sta_entry;
     unsigned long flags;
@@ -2253,6 +2264,9 @@ static struct cfg80211_ops vwifi_cfg_ops = {
     .join_ibss = vwifi_join_ibss,
     .leave_ibss = vwifi_leave_ibss,
 };
+
+#undef VWIFI_CFG80211_NDEV
+#undef VWIFI_CFG80211_DEV
 
 /* Macro for defining 2GHZ channel array */
 #define CHAN_2GHZ(channel, freq)   \
